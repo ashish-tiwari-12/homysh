@@ -7,11 +7,11 @@ const isauth = require("../middleawre/islogin");
 
 
 exports.getIndex = (req, res, next) => {
-  console.log("Session Value: ", req.session);
+  // console.log("Session Value: ", req.session);
   Home.find().then((registeredHomes) => {
     res.render("store/index", {
       registeredHomes: registeredHomes,
-      pageTitle: "airbnb Home",
+      pageTitle: "homysh",
       currentPage: "index",
       isLoggedIn: req.isLoggedIn,
       user: req.session.user,
@@ -95,52 +95,68 @@ exports.getHomeDetails = (req, res, next) => {
 exports.showBookingForm = async (req, res) => {
   const homeId = req.params.id;
   const home = await Home.findById(homeId);
-  res.render("store/book", {
 
+  res.render("store/book", {
     pageTitle: "Book This Home",
     currentPage: "book",
     isLoggedIn: req.isLoggedIn,
     user: req.session.user,
-    home
-  })
+    home,
+    success_msg: res.locals.success_msg,
+    error_msg: res.locals.error_msg
+  });
 };
+
 exports.handleBooking = async (req, res) => {
-  const { checkIn, checkOut, guests } = req.body;
-  const homeId = req.params.id;
-  const userId = req.session.user._id;
-  // const userId =req.user._id;
+  try {
+    const { checkIn, checkOut, guests } = req.body;
+    const homeId = req.params.id;
+    const userId = req.session.user._id;
 
-  const overlapping = await Booking.findOne({
-    homeId,
-    $or: [
-      {
-        checkIn: { $lt: new Date(checkOut) },
-        checkOut: { $gt: new Date(checkIn) }
-      }
-    ]
-  });
+    // Check for overlapping bookings
+    const overlapping = await Booking.findOne({
+      homeId,
+      $or: [
+        {
+          checkIn: { $lt: new Date(checkOut) },
+          checkOut: { $gt: new Date(checkIn) }
+        }
+      ]
+    });
 
-  if (overlapping) {
-    return res.send("This home is already booked during the selected dates.");
+    if (overlapping) {
+      req.flash('error_msg', "This home is already booked during the selected dates.");
+      return res.redirect("/");
+    }
+
+    // Create new booking
+    const booking = new Booking({
+      homeId,
+      userId,
+      checkIn,
+      checkOut,
+      guests,
+    });
+
+    await booking.save();
+
+    // Send confirmation email
+    await sendConfirmationEmail(req.session.user.email, booking);
+
+    // Set flash message for success
+    req.flash('success_msg', "Booking confirmed! Confirmation email sent.");
+    
+    // Redirect to the home page or booking page
+    res.redirect("/");
+    
+  } catch (err) {
+    console.error(err);
+    req.flash('error_msg', "Something went wrong. Please try again.");
+    console.log(error_msg);
+    res.redirect("/");
   }
-
-  const booking = new Booking({
-    homeId,
-    userId,
-    checkIn,
-    checkOut,
-    guests,
-  });
-
-  await booking.save();
-
-  sendConfirmationEmail(req.session.user.email, booking);
-  console.log(req.session.user.email);
-  // res.send("Booking successful! Confirmation email sent.");
-  res.redirect("/");
-
-
 };
+
 
 async function sendConfirmationEmail(to, booking) {
   const transporter = nodemailer.createTransport({

@@ -23,7 +23,12 @@ const userSchema = mongoose.Schema({
   favourites: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Home'
-  }]
+  }],
+  // OTP Fields for Forgot Password
+  otp: { type: String }, // Hashed OTP
+  otpExpiry: { type: Date },
+  otpAttempts: { type: Number, default: 0 },
+  otpLastRequested: { type: Date }
 });
 
 module.exports = mongoose.model('User', userSchema);

@@ -2,6 +2,7 @@
 require('dotenv').config();
 
 const path = require('path');
+const flash = require('connect-flash');
 
 // External Module
 const express = require('express');
@@ -20,6 +21,7 @@ const errorsController = require("./controllers/errors");
 
 
 const app = express();
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.set('view engine', 'ejs');
 app.set('views', 'views');
@@ -71,9 +73,15 @@ app.use(session({
   resave: false,
   saveUninitialized: true,
   store,
-  cookie:{maxAge:1000*60*60*24*7}
-  
+  cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
+
 }));
+app.use(flash());
+app.use((req, res, next) => {
+  res.locals.success_msg = req.flash('success_msg');
+  res.locals.error_msg = req.flash('error_msg');
+  next();
+});
 
 app.use((req, res, next) => {
   req.isLoggedIn = req.session.isLoggedIn
@@ -82,6 +90,10 @@ app.use((req, res, next) => {
 
 app.use(authRouter)
 app.use(storeRouter);
+
+
+
+
 app.use("/host", (req, res, next) => {
   if (req.isLoggedIn) {
     next();
@@ -113,3 +125,5 @@ app.post('/logout-refresh', (req, res) => {
   }
   res.redirect("/login"); // No redirect, just end
 });
+
+
